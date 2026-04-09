@@ -279,7 +279,7 @@ npm run deploy:functions
 
 ## CI con GitHub Actions
 
-El proyecto incluye un workflow en [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml) que se ejecuta en cada `pull_request` y en cada `push` hacia cualquier branch.
+El proyecto incluye un workflow en [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml) que se ejecuta en cada `pull_request` y tambien se puede lanzar manualmente con `workflow_dispatch`.
 
 El pipeline valida:
 
@@ -289,6 +289,38 @@ El pipeline valida:
 - `npm test`
 
 Para convertir esto en una regla real de merge en GitHub, se debe configurar branch protection y marcar el check `Lint, Build and Test` como obligatorio antes de permitir merge sobre las ramas protegidas, por ejemplo `main`, `develop` o cualquier branch principal que decidas proteger.
+
+## CD con GitHub Actions
+
+El proyecto incluye un workflow de despliegue en [.github/workflows/deploy.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/deploy.yml). Este workflow corre cuando hay `push` a `main`, que en un flujo normal corresponde al merge de un PR aprobado.
+
+El deploy:
+
+- instala dependencias
+- valida lint
+- compila el proyecto
+- ejecuta tests
+- genera el archivo `.env.<projectId>` en el runner
+- despliega Firestore y Cloud Functions a Firebase
+
+### Secrets requeridos en GitHub
+
+Configura estos repository secrets antes de habilitar el deploy automatico:
+
+- `FIREBASE_SERVICE_ACCOUNT`: JSON completo del service account con permisos de despliegue sobre Firebase y Google Cloud
+- `CORS_ORIGIN`: dominio productivo del frontend, por ejemplo `https://tu-frontend.com`
+- `LOG_LEVEL`: normalmente `info`
+
+### Branch protection recomendada
+
+Para que el flujo CI/CD sea consistente:
+
+1. Protege `main`.
+2. Exige el check `CI / Lint, Build and Test`.
+3. Exige pull request antes de merge.
+4. Deja el deploy solo por `push` a `main`, no desde PR.
+
+Si tu rama principal no se llama `main`, ajusta el trigger del workflow de deploy antes de activarlo.
 
 ## Tests incluidos
 
