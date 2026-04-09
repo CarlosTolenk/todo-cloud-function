@@ -204,17 +204,82 @@ npm test
 npm run serve
 ```
 
+## Preparacion para produccion
+
+### Recursos que debes crear en Firebase
+
+1. Crear un proyecto Firebase productivo.
+2. Activar Firestore en modo nativo.
+3. Asegurar que el proyecto tenga plan Blaze para poder desplegar Cloud Functions.
+4. Configurar el alias del proyecto con Firebase CLI:
+
+```bash
+firebase login
+firebase use --add
+```
+
+### Configuracion de entorno por proyecto
+
+Firebase Functions soporta archivos `.env` y `.env.<alias o projectId>` para despliegue. Para produccion, crea un archivo como:
+
+```bash
+.env.prod
+```
+
+o
+
+```bash
+.env.<tu-project-id>
+```
+
+Con valores como:
+
+```env
+NODE_ENV=production
+CORS_ORIGIN=https://tu-frontend.com
+LOG_LEVEL=info
+```
+
+En este backend no necesitas `FIREBASE_SERVICE_ACCOUNT_KEY` en produccion dentro de Firebase Functions, porque el Admin SDK usa Application Default Credentials del entorno gestionado.
+
+### Seguridad de Firestore
+
+El proyecto incluye [firestore.rules](/Users/carlostolentino/Projects/AtomChat/backend/firestore.rules) con acceso denegado a clientes directos. Esto es intencional: la arquitectura expone Firestore solo a traves del backend y el Admin SDK de Firebase bypassa las reglas de Firestore.
+
+### Indices de Firestore
+
+El proyecto incluye [firestore.indexes.json](/Users/carlostolentino/Projects/AtomChat/backend/firestore.indexes.json) con el indice compuesto necesario para consultar tareas por `userId` ordenadas por `createdAt desc`.
+
 ## Deploy
 
 Una vez configurado Firebase en el proyecto:
 
 ```bash
-firebase deploy --only functions
+npm run deploy
 ```
+
+Tambien puedes desplegar por separado:
+
+```bash
+npm run deploy:firestore
+npm run deploy:functions
+```
+
+### Checklist de despliegue productivo
+
+1. Confirmar que `CORS_ORIGIN` apunte al dominio real del frontend.
+2. Ejecutar `npm run lint`.
+3. Ejecutar `npm run build`.
+4. Ejecutar `npm test`.
+5. Desplegar `firestore.rules` e indices.
+6. Desplegar Functions.
+7. Probar `GET /health`.
+8. Probar el flujo real de crear usuario, crear tarea, listar, actualizar y eliminar.
+9. Revisar logs en Firebase Console o Google Cloud Logging.
 
 ## CI con GitHub Actions
 
-El proyecto incluye un workflow en [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml) que se ejecuta en cada `pull_request` y en cada `push` hacia cualquier branch.
+El proyecto incluye un workflow en [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml) que se ejecuta en cada `pull_request` y tambien se puede lanzar manualmente con `workflow_dispatch`.
 
 El pipeline valida:
 
@@ -224,6 +289,38 @@ El pipeline valida:
 - `npm test`
 
 Para convertir esto en una regla real de merge en GitHub, se debe configurar branch protection y marcar el check `Lint, Build and Test` como obligatorio antes de permitir merge sobre las ramas protegidas, por ejemplo `main`, `develop` o cualquier branch principal que decidas proteger.
+
+## CD con GitHub Actions
+
+El proyecto incluye un workflow de despliegue en [.github/workflows/deploy.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/deploy.yml). Este workflow corre cuando hay `push` a `main`, que en un flujo normal corresponde al merge de un PR aprobado.
+
+El deploy:
+
+- instala dependencias
+- valida lint
+- compila el proyecto
+- ejecuta tests
+- genera el archivo `.env.<projectId>` en el runner
+- despliega Firestore y Cloud Functions a Firebase
+
+### Secrets requeridos en GitHub
+
+Configura estos repository secrets antes de habilitar el deploy automatico:
+
+- `FIREBASE_SERVICE_ACCOUNT`: JSON completo del service account con permisos de despliegue sobre Firebase y Google Cloud
+- `CORS_ORIGIN`: dominio productivo del frontend, por ejemplo `https://tu-frontend.com`
+- `LOG_LEVEL`: normalmente `info`
+
+### Branch protection recomendada
+
+Para que el flujo CI/CD sea consistente:
+
+1. Protege `main`.
+2. Exige el check `CI / Lint, Build and Test`.
+3. Exige pull request antes de merge.
+4. Deja el deploy solo por `push` a `main`, no desde PR.
+
+Si tu rama principal no se llama `main`, ajusta el trigger del workflow de deploy antes de activarlo.
 
 ## Tests incluidos
 

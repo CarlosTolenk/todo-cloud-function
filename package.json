@@ -5,14 +5,17 @@
   "description": "Backend de prueba tecnica para app de tareas con Firebase Functions y Firestore.",
   "main": "lib/index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf lib coverage",
     "dev": "tsx watch src/server.ts",
+    "deploy": "firebase deploy --only firestore,functions",
+    "deploy:firestore": "firebase deploy --only firestore",
+    "deploy:functions": "firebase deploy --only functions",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "serve": "npm run build && firebase emulators:start --only functions",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "start": "npm run dev",
     "test": "vitest run --coverage",
     "test:watch": "vitest"
