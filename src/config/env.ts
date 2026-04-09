@@ -7,6 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   CORS_ORIGIN: z.string().trim().default('*'),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   FIREBASE_SERVICE_ACCOUNT_KEY: z.string().trim().optional(),
 });
 

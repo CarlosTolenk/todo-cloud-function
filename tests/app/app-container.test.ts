@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { AppContainer, createAppContainer } from '../../src/app/app-container';
+import type { Logger } from '../../src/shared/logging/logger';
 import { InMemoryTaskRepository } from '../support/in-memory-task-repository';
 import { InMemoryUserRepository } from '../support/in-memory-user-repository';
+
+const logger: Logger = {
+  debug: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
 
 describe('AppContainer', () => {
   it('creates a typed container instance', () => {
@@ -10,10 +18,12 @@ describe('AppContainer', () => {
       userRepository: new InMemoryUserRepository(),
       taskRepository: new InMemoryTaskRepository(),
       corsOrigin: 'http://localhost:4200',
+      logger,
     });
 
     expect(container).toBeInstanceOf(AppContainer);
     expect(container.corsOrigin).toBe('http://localhost:4200');
+    expect(container.logger).toBe(logger);
   });
 
   it('memoizes controllers as singletons inside the container', () => {
@@ -21,6 +31,7 @@ describe('AppContainer', () => {
       userRepository: new InMemoryUserRepository(),
       taskRepository: new InMemoryTaskRepository(),
       corsOrigin: '*',
+      logger,
     });
 
     expect(container.usersController).toBe(container.usersController);

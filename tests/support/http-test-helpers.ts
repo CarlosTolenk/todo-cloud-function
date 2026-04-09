@@ -2,6 +2,8 @@ import { vi } from 'vitest';
 
 export const createMockResponse = () => {
   const response = {
+    locals: {},
+    statusCode: 200,
     status: vi.fn(),
     json: vi.fn(),
   };

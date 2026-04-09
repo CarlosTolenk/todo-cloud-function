@@ -102,6 +102,22 @@ La aplicacion usa `dotenv` para desarrollo local y permite inicializar Firebase 
 
 No se hardcodean secretos en codigo.
 
+### 7. Logging estructurado
+
+El backend usa un logger propio, simple y tipado, que escribe logs JSON a consola. Esto funciona bien en Firebase Functions porque la plataforma recolecta `stdout` y `stderr` de forma nativa.
+
+Se registran:
+
+- inicio de cada request
+- fin de cada request
+- duracion en milisegundos
+- `requestId` para correlacion
+- errores de validacion
+- errores de negocio controlados
+- errores no controlados
+
+La verbosidad se controla con `LOG_LEVEL`.
+
 ## Endpoints
 
 ### `GET /users/by-email/:email`

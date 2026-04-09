@@ -3,16 +3,26 @@ import { z } from 'zod';
 
 import { AppError } from '../../../src/shared/errors/app-error';
 import {
-  errorHandler,
-  notFoundHandler,
+  createErrorHandler,
+  createNotFoundHandler,
 } from '../../../src/shared/http/error-middleware';
 import { createMockResponse } from '../../support/http-test-helpers';
 
 describe('error middleware', () => {
   it('returns a not found response', () => {
     const response = createMockResponse();
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const notFoundHandler = createNotFoundHandler(logger);
 
-    notFoundHandler({} as never, response as never);
+    notFoundHandler(
+      { method: 'GET', originalUrl: '/missing' } as never,
+      response as never,
+    );
 
     expect(response.status).toHaveBeenCalledWith(404);
     expect(response.json).toHaveBeenCalledWith({
@@ -22,11 +32,25 @@ describe('error middleware', () => {
         message: 'Route not found',
       },
     });
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Route not found',
+      expect.objectContaining({
+        method: 'GET',
+        path: '/missing',
+      }),
+    );
   });
 
   it('maps zod errors to a 400 response', () => {
     const response = createMockResponse();
     const next = vi.fn();
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const errorHandler = createErrorHandler(logger);
     let validationError: unknown;
 
     try {
@@ -47,11 +71,24 @@ describe('error middleware', () => {
         }),
       }),
     );
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Validation error',
+      expect.objectContaining({
+        details: expect.any(Object),
+      }),
+    );
   });
 
   it('maps app errors to their explicit status code', () => {
     const response = createMockResponse();
     const next = vi.fn();
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const errorHandler = createErrorHandler(logger);
 
     errorHandler(
       new AppError('TEST_ERROR', 'Known error', 409, { field: 'email' }),
@@ -69,11 +106,24 @@ describe('error middleware', () => {
         details: { field: 'email' },
       },
     });
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Handled application error',
+      expect.objectContaining({
+        code: 'TEST_ERROR',
+      }),
+    );
   });
 
   it('maps unknown errors to a 500 response', () => {
     const response = createMockResponse();
     const next = vi.fn();
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const errorHandler = createErrorHandler(logger);
 
     errorHandler(new Error('unknown'), {} as never, response as never, next);
 
@@ -85,5 +135,11 @@ describe('error middleware', () => {
         message: 'Unexpected server error',
       },
     });
+    expect(logger.error).toHaveBeenCalledWith(
+      'Unhandled error',
+      expect.objectContaining({
+        error: expect.any(Error),
+      }),
+    );
   });
 });

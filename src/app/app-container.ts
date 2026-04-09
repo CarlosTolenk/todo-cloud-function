@@ -18,6 +18,10 @@ export class AppContainer {
     return this.dependencies.corsOrigin;
   }
 
+  get logger() {
+    return this.dependencies.logger;
+  }
+
   get usersController(): UsersController {
     if (!this.usersControllerInstance) {
       this.usersControllerInstance = new UsersController(
