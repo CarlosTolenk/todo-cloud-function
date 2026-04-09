@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DeleteTaskUseCase } from '../../src/modules/tasks/application/delete-task';
-import { AppError } from '../../src/shared/errors/app-error';
+import { TaskNotFoundError } from '../../src/modules/tasks/domain/task-errors';
 import { InMemoryTaskRepository } from '../support/in-memory-task-repository';
 
 describe('DeleteTaskUseCase', () => {
@@ -22,10 +22,14 @@ describe('DeleteTaskUseCase', () => {
   it('rejects the deletion when the task does not exist', async () => {
     const useCase = new DeleteTaskUseCase(new InMemoryTaskRepository());
 
+    await expect(useCase.execute('missing-task')).rejects.toBeInstanceOf(
+      TaskNotFoundError,
+    );
     await expect(useCase.execute('missing-task')).rejects.toMatchObject({
       code: 'TASK_NOT_FOUND',
-      message: 'Task not found',
-      statusCode: 404,
-    } satisfies Partial<AppError>);
+      details: {
+        taskId: 'missing-task',
+      },
+    });
   });
 });

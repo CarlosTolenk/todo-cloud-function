@@ -1,6 +1,5 @@
-import { AppError } from '../../../shared/errors/app-error';
-import { HTTP_STATUS } from '../../../shared/http/http-status';
 import type { User } from '../domain/user';
+import { UserAlreadyExistsError } from '../domain/user-errors';
 import type { UserRepository } from '../domain/user-repository';
 
 export class CreateUserUseCase {
@@ -10,11 +9,7 @@ export class CreateUserUseCase {
     const existingUser = await this.userRepository.findByEmail(email);
 
     if (existingUser) {
-      throw new AppError(
-        'USER_ALREADY_EXISTS',
-        'A user with this email already exists',
-        HTTP_STATUS.CONFLICT,
-      );
+      throw new UserAlreadyExistsError(email);
     }
 
     return this.userRepository.create({

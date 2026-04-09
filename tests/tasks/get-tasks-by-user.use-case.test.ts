@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { GetTasksByUserUseCase } from '../../src/modules/tasks/application/get-tasks-by-user';
-import { AppError } from '../../src/shared/errors/app-error';
+import { UserNotFoundError } from '../../src/modules/users/domain/user-errors';
 import { InMemoryTaskRepository } from '../support/in-memory-task-repository';
 import { InMemoryUserRepository } from '../support/in-memory-user-repository';
 
@@ -34,10 +34,14 @@ describe('GetTasksByUserUseCase', () => {
       new InMemoryUserRepository(),
     );
 
+    await expect(useCase.execute('missing-user')).rejects.toBeInstanceOf(
+      UserNotFoundError,
+    );
     await expect(useCase.execute('missing-user')).rejects.toMatchObject({
       code: 'USER_NOT_FOUND',
-      message: 'User not found',
-      statusCode: 404,
-    } satisfies Partial<AppError>);
+      details: {
+        userId: 'missing-user',
+      },
+    });
   });
 });

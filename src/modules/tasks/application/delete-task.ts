@@ -1,5 +1,4 @@
-import { AppError } from '../../../shared/errors/app-error';
-import { HTTP_STATUS } from '../../../shared/http/http-status';
+import { TaskNotFoundError } from '../domain/task-errors';
 import type { TaskRepository } from '../domain/task-repository';
 
 export class DeleteTaskUseCase {
@@ -9,7 +8,7 @@ export class DeleteTaskUseCase {
     const task = await this.taskRepository.findById(id);
 
     if (!task) {
-      throw new AppError('TASK_NOT_FOUND', 'Task not found', HTTP_STATUS.NOT_FOUND);
+      throw new TaskNotFoundError(id);
     }
 
     await this.taskRepository.delete(id);

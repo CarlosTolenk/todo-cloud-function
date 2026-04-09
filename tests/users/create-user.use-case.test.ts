@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CreateUserUseCase } from '../../src/modules/users/application/create-user';
-import { AppError } from '../../src/shared/errors/app-error';
+import { UserAlreadyExistsError } from '../../src/modules/users/domain/user-errors';
 import { InMemoryUserRepository } from '../support/in-memory-user-repository';
 
 describe('CreateUserUseCase', () => {
@@ -24,10 +24,14 @@ describe('CreateUserUseCase', () => {
 
     await useCase.execute('duplicate@example.com');
 
+    await expect(useCase.execute('duplicate@example.com')).rejects.toBeInstanceOf(
+      UserAlreadyExistsError,
+    );
     await expect(useCase.execute('duplicate@example.com')).rejects.toMatchObject({
       code: 'USER_ALREADY_EXISTS',
-      message: 'A user with this email already exists',
-      statusCode: 409,
-    } satisfies Partial<AppError>);
+      details: {
+        email: 'duplicate@example.com',
+      },
+    });
   });
 });
