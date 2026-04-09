@@ -204,13 +204,78 @@ npm test
 npm run serve
 ```
 
+## Preparacion para produccion
+
+### Recursos que debes crear en Firebase
+
+1. Crear un proyecto Firebase productivo.
+2. Activar Firestore en modo nativo.
+3. Asegurar que el proyecto tenga plan Blaze para poder desplegar Cloud Functions.
+4. Configurar el alias del proyecto con Firebase CLI:
+
+```bash
+firebase login
+firebase use --add
+```
+
+### Configuracion de entorno por proyecto
+
+Firebase Functions soporta archivos `.env` y `.env.<alias o projectId>` para despliegue. Para produccion, crea un archivo como:
+
+```bash
+.env.prod
+```
+
+o
+
+```bash
+.env.<tu-project-id>
+```
+
+Con valores como:
+
+```env
+NODE_ENV=production
+CORS_ORIGIN=https://tu-frontend.com
+LOG_LEVEL=info
+```
+
+En este backend no necesitas `FIREBASE_SERVICE_ACCOUNT_KEY` en produccion dentro de Firebase Functions, porque el Admin SDK usa Application Default Credentials del entorno gestionado.
+
+### Seguridad de Firestore
+
+El proyecto incluye [firestore.rules](/Users/carlostolentino/Projects/AtomChat/backend/firestore.rules) con acceso denegado a clientes directos. Esto es intencional: la arquitectura expone Firestore solo a traves del backend y el Admin SDK de Firebase bypassa las reglas de Firestore.
+
+### Indices de Firestore
+
+El proyecto incluye [firestore.indexes.json](/Users/carlostolentino/Projects/AtomChat/backend/firestore.indexes.json) con el indice compuesto necesario para consultar tareas por `userId` ordenadas por `createdAt desc`.
+
 ## Deploy
 
 Una vez configurado Firebase en el proyecto:
 
 ```bash
-firebase deploy --only functions
+npm run deploy
 ```
+
+Tambien puedes desplegar por separado:
+
+```bash
+npm run deploy:firestore
+npm run deploy:functions
+```
+
+### Checklist de despliegue productivo
+
+1. Confirmar que `CORS_ORIGIN` apunte al dominio real del frontend.
+2. Ejecutar `npm run lint`.
+3. Ejecutar `npm run build`.
+4. Ejecutar `npm test`.
+5. Desplegar `firestore.rules` e indices.
+6. Desplegar Functions.
+7. Probar `GET /health`.
+8. Probar el flujo real de crear usuario, crear tarea, listar, actualizar y eliminar.
+9. Revisar logs en Firebase Console o Google Cloud Logging.
 
 ## CI con GitHub Actions
 
