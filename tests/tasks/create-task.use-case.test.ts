@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CreateTaskUseCase } from '../../src/modules/tasks/application/create-task';
-import { AppError } from '../../src/shared/errors/app-error';
+import { UserNotFoundError } from '../../src/modules/users/domain/user-errors';
 import { InMemoryTaskRepository } from '../support/in-memory-task-repository';
 import { InMemoryUserRepository } from '../support/in-memory-user-repository';
 
@@ -41,10 +41,18 @@ describe('CreateTaskUseCase', () => {
         title: 'Orphan task',
         description: 'Should fail',
       }),
+    ).rejects.toBeInstanceOf(UserNotFoundError);
+    await expect(
+      useCase.execute({
+        userId: 'missing-user',
+        title: 'Orphan task',
+        description: 'Should fail',
+      }),
     ).rejects.toMatchObject({
       code: 'USER_NOT_FOUND',
-      message: 'User not found',
-      statusCode: 404,
-    } satisfies Partial<AppError>);
+      details: {
+        userId: 'missing-user',
+      },
+    });
   });
 });

@@ -1,6 +1,5 @@
-import { AppError } from '../../../shared/errors/app-error';
-import { HTTP_STATUS } from '../../../shared/http/http-status';
 import type { Task, UpdateTaskInput } from '../domain/task';
+import { TaskNotFoundError } from '../domain/task-errors';
 import type { TaskRepository } from '../domain/task-repository';
 
 export class UpdateTaskUseCase {
@@ -10,7 +9,7 @@ export class UpdateTaskUseCase {
     const task = await this.taskRepository.findById(id);
 
     if (!task) {
-      throw new AppError('TASK_NOT_FOUND', 'Task not found', HTTP_STATUS.NOT_FOUND);
+      throw new TaskNotFoundError(id);
     }
 
     return this.taskRepository.update(id, input);

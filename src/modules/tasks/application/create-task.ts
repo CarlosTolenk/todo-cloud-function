@@ -1,6 +1,5 @@
-import { AppError } from '../../../shared/errors/app-error';
-import { HTTP_STATUS } from '../../../shared/http/http-status';
 import type { UserRepository } from '../../users/domain/user-repository';
+import { UserNotFoundError } from '../../users/domain/user-errors';
 import type { Task } from '../domain/task';
 import type { TaskRepository } from '../domain/task-repository';
 
@@ -18,7 +17,7 @@ export class CreateTaskUseCase {
     const user = await this.userRepository.findById(input.userId);
 
     if (!user) {
-      throw new AppError('USER_NOT_FOUND', 'User not found', HTTP_STATUS.NOT_FOUND);
+      throw new UserNotFoundError(input.userId);
     }
 
     return this.taskRepository.create(input);

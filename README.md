@@ -1,28 +1,41 @@
 # AtomChat Backend
 
-Backend para una prueba tecnica de tareas construido con Node.js, Express, TypeScript, Firebase Cloud Functions y Firestore.
+Backend para una aplicacion de gestion de tareas construido con Node.js, Express, TypeScript, Firebase Cloud Functions y Firestore.
 
-## Objetivo
+## Resumen
 
-La solucion prioriza:
+Este servicio expone una API HTTP para:
 
-- claridad arquitectonica
-- simplicidad operativa
-- contratos JSON consistentes
-- Firestore encapsulado detras de repositorios
-- facilidad para explicar decisiones tecnicas en entrevista
+- buscar usuarios por email
+- crear usuarios
+- listar tareas por usuario
+- crear tareas
+- actualizar tareas
+- eliminar tareas
+
+La solucion esta organizada con una arquitectura limpia y pragmatica, con separacion por modulos, validacion explicita de entradas, logging estructurado y despliegue automatizado sobre Firebase.
 
 ## Stack
 
-- Node.js 20
+- Node.js 22
 - Express
 - TypeScript estricto
 - Firebase Functions v2
 - Firestore
-- Zod para validacion
-- Vitest + Supertest para pruebas
+- Zod
+- Vitest
 
-## Estructura
+## Caracteristicas
+
+- API REST con respuestas JSON consistentes
+- validacion de payloads y params con schemas explicitos
+- Firestore encapsulado detras de repositorios
+- logging estructurado con `requestId`
+- CI para validar lint, build y test en pull requests
+- CD para desplegar automaticamente en `main`
+- reglas e indices de Firestore versionados en el repo
+
+## Arquitectura
 
 ```text
 src/
@@ -43,28 +56,18 @@ src/
 tests/
 ```
 
-## Decisiones tecnicas
+### Criterios de diseño
 
-### 1. Arquitectura limpia, pero pragmatica
-
-Se uso una separacion por modulos y capas:
-
-- `domain`: contratos y entidades
+- `domain`: contratos y modelos
 - `application`: casos de uso
-- `infrastructure`: implementaciones de Firestore
+- `infrastructure`: acceso a Firestore
 - `presentation`: controllers, rutas y schemas
 
-No se agregaron factories, buses, mappers complejos ni patrones extra porque no aportaban valor real al reto.
+La composicion de dependencias se centraliza en `src/app/app-container.ts`, lo que mantiene el bootstrap limpio sin introducir una libreria externa de IoC.
 
-Adicionalmente, la composicion de dependencias vive en un contenedor propio y liviano dentro de `src/app/app-container.ts`. Esto centraliza la construccion de repositorios, casos de uso y controladores sin introducir una libreria de IoC externa, manteniendo el proyecto simple y facil de explicar.
+## Contrato de respuesta
 
-### 2. Firestore desacoplado
-
-Los casos de uso dependen de interfaces de repositorio, no de Firestore directamente. Esto mantiene el dominio simple, facilita testing y permite reemplazar infraestructura sin tocar la logica principal.
-
-### 3. Respuesta JSON consistente
-
-Todas las respuestas siguen este contrato:
+Respuesta exitosa:
 
 ```json
 {
@@ -73,7 +76,7 @@ Todas las respuestas siguen este contrato:
 }
 ```
 
-o en error:
+Respuesta con error:
 
 ```json
 {
@@ -85,48 +88,17 @@ o en error:
 }
 ```
 
-### 4. Validacion explicita
+## API
 
-Los DTOs de entrada se validan con Zod en la capa `presentation`. Eso evita que entren datos invalidos a los casos de uso y mantiene mensajes de error claros.
+### `GET /health`
 
-### 5. Firebase Functions sin estructura duplicada
-
-El repo completo funciona como paquete de Firebase Functions. `src/index.ts` exporta la funcion HTTP y `src/server.ts` permite correr localmente la app Express fuera del emulador.
-
-### 6. Variables de entorno seguras
-
-La aplicacion usa `dotenv` para desarrollo local y permite inicializar Firebase con:
-
-- Application Default Credentials, recomendado en Firebase/GCP
-- `FIREBASE_SERVICE_ACCOUNT_KEY`, opcional para entornos externos
-
-No se hardcodean secretos en codigo.
-
-### 7. Logging estructurado
-
-El backend usa un logger propio, simple y tipado, que escribe logs JSON a consola. Esto funciona bien en Firebase Functions porque la plataforma recolecta `stdout` y `stderr` de forma nativa.
-
-Se registran:
-
-- inicio de cada request
-- fin de cada request
-- duracion en milisegundos
-- `requestId` para correlacion
-- errores de validacion
-- errores de negocio controlados
-- errores no controlados
-
-La verbosidad se controla con `LOG_LEVEL`.
-
-## Endpoints
+Healthcheck del servicio.
 
 ### `GET /users/by-email/:email`
 
 Busca un usuario por email.
 
 ### `POST /users`
-
-Body:
 
 ```json
 {
@@ -136,11 +108,9 @@ Body:
 
 ### `GET /tasks?userId=...`
 
-Obtiene tareas de un usuario existente.
+Obtiene las tareas de un usuario.
 
 ### `POST /tasks`
-
-Body:
 
 ```json
 {
@@ -151,8 +121,6 @@ Body:
 ```
 
 ### `PATCH /tasks/:id`
-
-Body parcial permitido:
 
 ```json
 {
@@ -166,73 +134,53 @@ Body parcial permitido:
 
 Elimina una tarea existente.
 
-## Ejecutar localmente
+## Validacion y errores
 
-1. Instala dependencias:
+La entrada HTTP se valida en la capa `presentation` con Zod antes de llegar a la logica de negocio.  
+Los errores de negocio y los errores inesperados se normalizan a un contrato comun para facilitar consumo desde frontend y observabilidad.
 
-```bash
-npm install
-```
+## Logging y observabilidad
 
-2. Crea variables de entorno:
+El backend usa logging estructurado en JSON, pensado para Firebase Functions y Cloud Logging.
 
-```bash
-cp .env.example .env
-```
+Se registra:
 
-3. Para desarrollo local con Express:
+- inicio de request
+- fin de request
+- `requestId`
+- metodo y path
+- status code
+- duracion en ms
+- errores de validacion
+- errores de negocio controlados
+- errores no controlados
 
-```bash
-npm run dev
-```
+La verbosidad se controla con `LOG_LEVEL`.
 
-4. Para compilar:
+## Variables de entorno
 
-```bash
-npm run build
-```
-
-5. Para pruebas:
-
-```bash
-npm test
-```
-
-6. Para emulador de Firebase Functions:
+Archivo base:
 
 ```bash
-npm run serve
+.env.example
 ```
 
-## Preparacion para produccion
+Variables principales:
 
-### Recursos que debes crear en Firebase
+```env
+NODE_ENV=development
+PORT=3000
+CORS_ORIGIN=*
+LOG_LEVEL=info
+```
 
-1. Crear un proyecto Firebase productivo.
-2. Activar Firestore en modo nativo.
-3. Asegurar que el proyecto tenga plan Blaze para poder desplegar Cloud Functions.
-4. Configurar el alias del proyecto con Firebase CLI:
+Para produccion en Firebase Functions, se recomienda usar:
 
 ```bash
-firebase login
-firebase use --add
+.env.<projectId>
 ```
 
-### Configuracion de entorno por proyecto
-
-Firebase Functions soporta archivos `.env` y `.env.<alias o projectId>` para despliegue. Para produccion, crea un archivo como:
-
-```bash
-.env.prod
-```
-
-o
-
-```bash
-.env.<tu-project-id>
-```
-
-Con valores como:
+Ejemplo:
 
 ```env
 NODE_ENV=production
@@ -240,96 +188,123 @@ CORS_ORIGIN=https://tu-frontend.com
 LOG_LEVEL=info
 ```
 
-En este backend no necesitas `FIREBASE_SERVICE_ACCOUNT_KEY` en produccion dentro de Firebase Functions, porque el Admin SDK usa Application Default Credentials del entorno gestionado.
+En produccion no es necesario definir `FIREBASE_SERVICE_ACCOUNT_KEY` dentro de Firebase Functions, ya que el Admin SDK usa las credenciales gestionadas del entorno.
 
-### Seguridad de Firestore
+## Desarrollo local
 
-El proyecto incluye [firestore.rules](/Users/carlostolentino/Projects/AtomChat/backend/firestore.rules) con acceso denegado a clientes directos. Esto es intencional: la arquitectura expone Firestore solo a traves del backend y el Admin SDK de Firebase bypassa las reglas de Firestore.
+1. Instalar dependencias:
 
-### Indices de Firestore
+```bash
+npm install
+```
 
-El proyecto incluye [firestore.indexes.json](/Users/carlostolentino/Projects/AtomChat/backend/firestore.indexes.json) con el indice compuesto necesario para consultar tareas por `userId` ordenadas por `createdAt desc`.
+2. Crear archivo de entorno:
 
-## Deploy
+```bash
+cp .env.example .env
+```
 
-Una vez configurado Firebase en el proyecto:
+3. Ejecutar en modo desarrollo:
+
+```bash
+npm run dev
+```
+
+4. Ejecutar emuladores de Functions y Firestore:
+
+```bash
+npm run serve
+```
+
+## Calidad
+
+Validaciones locales:
+
+```bash
+npm run lint
+npm run build
+npm test
+```
+
+La suite cubre casos de uso, controladores, repositorios, middlewares HTTP, logging y validaciones.
+
+## Firestore
+
+El proyecto incluye configuracion versionada para Firestore:
+
+- reglas: [firestore.rules](/Users/carlostolentino/Projects/AtomChat/backend/firestore.rules)
+- indices: [firestore.indexes.json](/Users/carlostolentino/Projects/AtomChat/backend/firestore.indexes.json)
+
+La base esta pensada para ser accedida a traves del backend. Por eso las reglas bloquean acceso directo de clientes y el acceso operativo lo realiza el Admin SDK desde Cloud Functions.
+
+## Despliegue
+
+### Requisitos
+
+- proyecto Firebase creado
+- Firestore habilitado
+- plan Blaze activo
+- alias configurado con Firebase CLI
+
+### Comandos
+
+Deploy completo:
 
 ```bash
 npm run deploy
 ```
 
-Tambien puedes desplegar por separado:
+Deploy por recurso:
 
 ```bash
 npm run deploy:firestore
 npm run deploy:functions
 ```
 
-### Checklist de despliegue productivo
+### Checklist
 
-1. Confirmar que `CORS_ORIGIN` apunte al dominio real del frontend.
+1. Confirmar `CORS_ORIGIN` para el frontend real.
 2. Ejecutar `npm run lint`.
 3. Ejecutar `npm run build`.
 4. Ejecutar `npm test`.
-5. Desplegar `firestore.rules` e indices.
+5. Desplegar Firestore.
 6. Desplegar Functions.
 7. Probar `GET /health`.
-8. Probar el flujo real de crear usuario, crear tarea, listar, actualizar y eliminar.
-9. Revisar logs en Firebase Console o Google Cloud Logging.
+8. Validar CRUD real de usuarios y tareas.
+9. Revisar logs en Cloud Logging.
 
-## CI con GitHub Actions
+## CI/CD
 
-El proyecto incluye un workflow en [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml) que se ejecuta en cada `pull_request` y tambien se puede lanzar manualmente con `workflow_dispatch`.
+### CI
 
-El pipeline valida:
+Workflow: [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml)
+
+Se ejecuta en cada `pull_request` y valida:
 
 - `npm ci`
 - `npm run lint`
 - `npm run build`
 - `npm test`
 
-Para convertir esto en una regla real de merge en GitHub, se debe configurar branch protection y marcar el check `Lint, Build and Test` como obligatorio antes de permitir merge sobre las ramas protegidas, por ejemplo `main`, `develop` o cualquier branch principal que decidas proteger.
+### CD
 
-## CD con GitHub Actions
+Workflow: [.github/workflows/deploy.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/deploy.yml)
 
-El proyecto incluye un workflow de despliegue en [.github/workflows/deploy.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/deploy.yml). Este workflow corre cuando hay `push` a `main`, que en un flujo normal corresponde al merge de un PR aprobado.
-
-El deploy:
+Se ejecuta al hacer `push` a `main` y:
 
 - instala dependencias
 - valida lint
-- compila el proyecto
+- compila
 - ejecuta tests
-- genera el archivo `.env.<projectId>` en el runner
-- despliega Firestore y Cloud Functions a Firebase
+- genera el archivo de entorno del proyecto
+- despliega Firestore y Cloud Functions
 
-### Secrets requeridos en GitHub
+### Secrets de GitHub requeridos
 
-Configura estos repository secrets antes de habilitar el deploy automatico:
+- `FIREBASE_SERVICE_ACCOUNT`
+- `CORS_ORIGIN`
+- `LOG_LEVEL`
 
-- `FIREBASE_SERVICE_ACCOUNT`: JSON completo del service account con permisos de despliegue sobre Firebase y Google Cloud
-- `CORS_ORIGIN`: dominio productivo del frontend, por ejemplo `https://tu-frontend.com`
-- `LOG_LEVEL`: normalmente `info`
+### Recomendacion operativa
 
-### Branch protection recomendada
-
-Para que el flujo CI/CD sea consistente:
-
-1. Protege `main`.
-2. Exige el check `CI / Lint, Build and Test`.
-3. Exige pull request antes de merge.
-4. Deja el deploy solo por `push` a `main`, no desde PR.
-
-Si tu rama principal no se llama `main`, ajusta el trigger del workflow de deploy antes de activarlo.
-
-## Tests incluidos
-
-Se incluyeron pruebas minimas pero solidas sobre:
-
-- creacion de usuario
-- busqueda por email
-- rechazo de usuarios duplicados
-- flujo completo de tareas
-- validaciones de entrada
-
-Las pruebas usan repositorios en memoria para verificar contratos HTTP y comportamiento de negocio sin depender del emulador de Firestore.
+Protege `main` y exige el check `CI / Lint, Build and Test` antes de permitir merge.
