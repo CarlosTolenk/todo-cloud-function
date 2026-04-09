@@ -4,9 +4,7 @@ on:
   pull_request:
     branches:
       - '**'
-  push:
-    branches:
-      - '**'
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
