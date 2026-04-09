@@ -56,6 +56,8 @@ Se uso una separacion por modulos y capas:
 
 No se agregaron factories, buses, mappers complejos ni patrones extra porque no aportaban valor real al reto.
 
+Adicionalmente, la composicion de dependencias vive en un contenedor propio y liviano dentro de `src/app/app-container.ts`. Esto centraliza la construccion de repositorios, casos de uso y controladores sin introducir una libreria de IoC externa, manteniendo el proyecto simple y facil de explicar.
+
 ### 2. Firestore desacoplado
 
 Los casos de uso dependen de interfaces de repositorio, no de Firestore directamente. Esto mantiene el dominio simple, facilita testing y permite reemplazar infraestructura sin tocar la logica principal.
