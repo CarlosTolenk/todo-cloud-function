@@ -212,6 +212,19 @@ Una vez configurado Firebase en el proyecto:
 firebase deploy --only functions
 ```
 
+## CI con GitHub Actions
+
+El proyecto incluye un workflow en [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml) que se ejecuta en cada `pull_request` y en cada `push` hacia cualquier branch.
+
+El pipeline valida:
+
+- `npm ci`
+- `npm run lint`
+- `npm run build`
+- `npm test`
+
+Para convertir esto en una regla real de merge en GitHub, se debe configurar branch protection y marcar el check `Lint, Build and Test` como obligatorio antes de permitir merge sobre las ramas protegidas, por ejemplo `main`, `develop` o cualquier branch principal que decidas proteger.
+
 ## Tests incluidos
 
 Se incluyeron pruebas minimas pero solidas sobre:
