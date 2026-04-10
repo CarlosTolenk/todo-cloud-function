@@ -1,47 +1,50 @@
 # AtomChat Backend
 
-Backend para una aplicacion de gestion de tareas construido con Node.js, Express, TypeScript, Firebase Cloud Functions y Firestore.
+Backend de prueba tecnica para una aplicacion de gestion de tareas. La solucion expone una API REST construida con Express, TypeScript estricto, Firebase Functions y Firestore, con foco en claridad arquitectonica, contratos consistentes y facilidad de evaluacion tecnica.
 
-## Resumen
+## Objetivo
 
-Este servicio expone una API HTTP para:
+Este proyecto resuelve el backend de una aplicacion sencilla de usuarios y tareas con un alcance deliberadamente acotado:
 
-- buscar usuarios por email
 - crear usuarios
-- listar tareas por usuario
+- buscar usuarios por email
 - crear tareas
+- listar tareas por usuario
 - actualizar tareas
 - eliminar tareas
 
-La solucion esta organizada con una arquitectura limpia y pragmatica, con separacion por modulos, validacion explicita de entradas, logging estructurado y despliegue automatizado sobre Firebase.
+La prioridad no fue agregar complejidad, sino entregar una base mantenible, testeable y defendible en entrevista.
 
-## Stack
+## Principios de la solucion
+
+- TypeScript estricto en toda la base de codigo
+- separacion pragmatica por capas: `domain`, `application`, `infrastructure`, `presentation`
+- contratos HTTP consistentes para casos exitosos y errores
+- validacion explicita de entradas con Zod
+- acceso a Firestore encapsulado tras repositorios
+- bootstrap simple sin sobreingenieria ni frameworks de IoC
+- logging estructurado orientado a entornos serverless
+
+## Stack Tecnico
 
 - Node.js 22
-- Express
-- TypeScript estricto
+- Express 4
+- TypeScript 5
 - Firebase Functions v2
 - Firestore
 - Zod
 - Vitest
-
-## Caracteristicas
-
-- API REST con respuestas JSON consistentes
-- validacion de payloads y params con schemas explicitos
-- Firestore encapsulado detras de repositorios
-- logging estructurado con `requestId`
-- CI para validar lint, build y test en pull requests
-- CD para desplegar automaticamente en `main`
-- reglas e indices de Firestore versionados en el repo
 
 ## Arquitectura
 
 ```text
 src/
   app/
+    app-container.ts
+    create-app.ts
   config/
-  shared/
+    env.ts
+    firebase.ts
   modules/
     users/
       domain/
@@ -53,21 +56,58 @@ src/
       application/
       infrastructure/
       presentation/
+  shared/
+    errors/
+    http/
+    logging/
+    types/
+    validation/
+  index.ts
+  server.ts
 tests/
 ```
 
-### Criterios de diseño
+### Rol de cada capa
 
-- `domain`: contratos y modelos
-- `application`: casos de uso
-- `infrastructure`: acceso a Firestore
-- `presentation`: controllers, rutas y schemas
+- `domain`: entidades, contratos y errores de negocio
+- `application`: casos de uso y orquestacion
+- `infrastructure`: implementaciones concretas de persistencia
+- `presentation`: rutas, controladores y validacion HTTP
+- `shared`: piezas transversales reutilizables
 
-La composicion de dependencias se centraliza en `src/app/app-container.ts`, lo que mantiene el bootstrap limpio sin introducir una libreria externa de IoC.
+### Decision arquitectonica clave
 
-## Contrato de respuesta
+En lugar de usar una libreria de inyeccion de dependencias, la composicion se centraliza en [`src/app/app-container.ts`](/Users/carlostolentino/Projects/AtomChat/backend/src/app/app-container.ts). Para una prueba tecnica, este enfoque reduce complejidad accidental y mantiene explicita la forma en que se construye la aplicacion.
 
-Respuesta exitosa:
+## Modelo de Dominio
+
+### Usuario
+
+```ts
+interface User {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+```
+
+### Tarea
+
+```ts
+interface Task {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+## Contrato HTTP
+
+### Respuesta exitosa
 
 ```json
 {
@@ -76,96 +116,180 @@ Respuesta exitosa:
 }
 ```
 
-Respuesta con error:
+### Respuesta de error
 
 ```json
 {
   "success": false,
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "Invalid request data"
+    "message": "Invalid request data",
+    "details": {}
   }
 }
 ```
+
+Este contrato se mantiene uniforme en todos los endpoints para simplificar el consumo desde frontend.
 
 ## API
 
 ### `GET /health`
 
-Healthcheck del servicio.
+Health check del servicio.
+
+Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok"
+  }
+}
+```
 
 ### `GET /users/by-email/:email`
 
 Busca un usuario por email.
 
+Ejemplo:
+
+```http
+GET /users/by-email/jane@example.com
+```
+
 ### `POST /users`
+
+Crea un usuario.
+
+Body:
 
 ```json
 {
-  "email": "user@example.com"
+  "email": "jane@example.com"
 }
 ```
 
-### `GET /tasks?userId=...`
+Posibles errores:
 
-Obtiene las tareas de un usuario.
+- `400 VALIDATION_ERROR`
+- `409 USER_ALREADY_EXISTS`
+
+### `GET /tasks?userId=:userId`
+
+Lista las tareas de un usuario.
+
+Ejemplo:
+
+```http
+GET /tasks?userId=user_123
+```
 
 ### `POST /tasks`
 
+Crea una tarea.
+
+Body:
+
 ```json
 {
-  "userId": "user-id",
-  "title": "Task title",
-  "description": "Task description"
+  "userId": "user_123",
+  "title": "Preparar demo",
+  "description": "Dejar lista la presentacion tecnica"
 }
 ```
 
+Restricciones:
+
+- `title`: 1 a 120 caracteres
+- `description`: 1 a 500 caracteres
+
 ### `PATCH /tasks/:id`
+
+Actualiza una tarea existente.
+
+Body:
 
 ```json
 {
-  "title": "Updated title",
-  "description": "Updated description",
+  "title": "Preparar demo final",
+  "description": "Agregar casos de error y decisiones tecnicas",
   "completed": true
 }
 ```
 
+Regla:
+
+- debe llegar al menos un campo para actualizar
+
+Posibles errores:
+
+- `400 VALIDATION_ERROR`
+- `404 TASK_NOT_FOUND`
+
 ### `DELETE /tasks/:id`
 
-Elimina una tarea existente.
+Elimina una tarea y retorna el `id` eliminado.
 
-## Validacion y errores
+Respuesta:
 
-La entrada HTTP se valida en la capa `presentation` con Zod antes de llegar a la logica de negocio.  
-Los errores de negocio y los errores inesperados se normalizan a un contrato comun para facilitar consumo desde frontend y observabilidad.
+```json
+{
+  "success": true,
+  "data": {
+    "id": "task_123"
+  }
+}
+```
 
-## Logging y observabilidad
+## Validacion y Manejo de Errores
 
-El backend usa logging estructurado en JSON, pensado para Firebase Functions y Cloud Logging.
+La validacion de entrada se realiza en la capa `presentation` con Zod antes de ejecutar casos de uso. Los errores de dominio se modelan como excepciones tipadas y se traducen a respuestas HTTP consistentes desde el middleware global.
 
-Se registra:
+Casos contemplados:
 
-- inicio de request
-- fin de request
+- request invalido
+- recurso no encontrado
+- conflictos de negocio
+- rutas inexistentes
+- errores inesperados
+
+Esto evita mezclar reglas de negocio con decisiones HTTP y hace la API mas predecible.
+
+## Logging y Observabilidad
+
+El servicio genera logs estructurados en JSON, utiles tanto en desarrollo como en Firebase / Cloud Logging.
+
+Se registran:
+
+- inicio y fin de request
 - `requestId`
-- metodo y path
+- metodo HTTP y path
 - status code
-- duracion en ms
+- duracion
 - errores de validacion
-- errores de negocio controlados
+- errores controlados
 - errores no controlados
 
 La verbosidad se controla con `LOG_LEVEL`.
 
-## Variables de entorno
+## Ejecucion Local
 
-Archivo base:
+### Requisitos
+
+- Node.js 22
+- npm
+- Firebase CLI si se desea usar emuladores o despliegue
+
+### 1. Instalar dependencias
 
 ```bash
-.env.example
+npm install
 ```
 
-Variables principales:
+### 2. Crear archivo `.env`
+
+Ejemplo minimo:
 
 ```env
 NODE_ENV=development
@@ -174,137 +298,111 @@ CORS_ORIGIN=*
 LOG_LEVEL=info
 ```
 
-Para produccion en Firebase Functions, se recomienda usar:
-
-```bash
-.env.<projectId>
-```
-
-Ejemplo:
+Si se necesita inicializar Firebase Admin con una cuenta de servicio fuera del entorno gestionado, se puede definir:
 
 ```env
-NODE_ENV=production
-CORS_ORIGIN=https://tu-frontend.com
-LOG_LEVEL=info
+FIREBASE_SERVICE_ACCOUNT_KEY={"project_id":"...","client_email":"...","private_key":"..."}
 ```
 
-En produccion no es necesario definir `FIREBASE_SERVICE_ACCOUNT_KEY` dentro de Firebase Functions, ya que el Admin SDK usa las credenciales gestionadas del entorno.
-
-## Desarrollo local
-
-1. Instalar dependencias:
-
-```bash
-npm install
-```
-
-2. Crear archivo de entorno:
-
-```bash
-cp .env.example .env
-```
-
-3. Ejecutar en modo desarrollo:
+### 3. Levantar servidor local
 
 ```bash
 npm run dev
 ```
 
-4. Ejecutar emuladores de Functions y Firestore:
+La API queda disponible en:
+
+```text
+http://localhost:3000
+```
+
+### 4. Ejecutar emuladores de Firebase
 
 ```bash
 npm run serve
 ```
 
-## Calidad
+Este flujo compila primero el proyecto y luego inicia emuladores de Functions y Firestore.
 
-Validaciones locales:
+## Scripts Disponibles
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run test
+npm run test:watch
+npm run serve
+npm run deploy
+```
+
+## Testing y Calidad
+
+La suite de pruebas cubre:
+
+- casos de uso
+- controladores HTTP
+- validaciones de schemas
+- repositorios
+- middlewares compartidos
+- logging
+- composicion de la aplicacion
+
+Validacion recomendada antes de presentar o desplegar:
 
 ```bash
 npm run lint
 npm run build
-npm test
+npm run test
 ```
-
-La suite cubre casos de uso, controladores, repositorios, middlewares HTTP, logging y validaciones.
 
 ## Firestore
 
-El proyecto incluye configuracion versionada para Firestore:
+La configuracion de Firestore esta versionada en el repositorio:
 
 - reglas: [firestore.rules](/Users/carlostolentino/Projects/AtomChat/backend/firestore.rules)
 - indices: [firestore.indexes.json](/Users/carlostolentino/Projects/AtomChat/backend/firestore.indexes.json)
 
-La base esta pensada para ser accedida a traves del backend. Por eso las reglas bloquean acceso directo de clientes y el acceso operativo lo realiza el Admin SDK desde Cloud Functions.
+La intencion de esta solucion es que los clientes consuman el backend y no Firestore directamente. Por eso el acceso de datos vive detras de la API y de los repositorios.
 
 ## Despliegue
 
-### Requisitos
+La entrada para Firebase Functions es [`src/index.ts`](/Users/carlostolentino/Projects/AtomChat/backend/src/index.ts), donde se expone la funcion HTTP `api`.
 
-- proyecto Firebase creado
-- Firestore habilitado
-- plan Blaze activo
-- alias configurado con Firebase CLI
-
-### Comandos
-
-Deploy completo:
+Comandos principales:
 
 ```bash
 npm run deploy
-```
-
-Deploy por recurso:
-
-```bash
-npm run deploy:firestore
 npm run deploy:functions
+npm run deploy:firestore
 ```
 
-### Checklist
+En entornos de Firebase Functions no es necesario definir `FIREBASE_SERVICE_ACCOUNT_KEY` si se usan las credenciales administradas por la plataforma.
 
-1. Confirmar `CORS_ORIGIN` para el frontend real.
-2. Ejecutar `npm run lint`.
-3. Ejecutar `npm run build`.
-4. Ejecutar `npm test`.
-5. Desplegar Firestore.
-6. Desplegar Functions.
-7. Probar `GET /health`.
-8. Validar CRUD real de usuarios y tareas.
-9. Revisar logs en Cloud Logging.
+## Decisiones Tecnicas y Tradeoffs
 
-## CI/CD
+- Se uso Express sobre un framework mas grande para mantener bajo el costo cognitivo.
+- Se separaron modulos por feature (`users`, `tasks`) para facilitar escalabilidad sin romper cohesion.
+- Se encapsulo Firestore con interfaces para poder testear la logica de negocio sin depender de la base real.
+- Se eligio Zod para validar borde de entrada y producir errores consistentes con poco codigo.
+- No se agrego autenticacion porque no forma parte del alcance actual del reto.
+- No se introdujo paginacion porque el caso de uso actual no la exige; seria una extension natural si creciera el volumen.
 
-### CI
+## Posibles Mejoras Futuras
 
-Workflow: [.github/workflows/ci.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/ci.yml)
+- autenticacion y autorizacion
+- paginacion y filtros de tareas
+- documentacion OpenAPI / Swagger
+- CI/CD visible en el repositorio
+- metricas y tracing
+- separacion de entornos mas detallada
 
-Se ejecuta en cada `pull_request` y valida:
+## Estado del Proyecto
 
-- `npm ci`
-- `npm run lint`
-- `npm run build`
-- `npm test`
+La solucion actual esta lista para evaluacion tecnica como backend base de una app de tareas:
 
-### CD
-
-Workflow: [.github/workflows/deploy.yml](/Users/carlostolentino/Projects/AtomChat/backend/.github/workflows/deploy.yml)
-
-Se ejecuta al hacer `push` a `main` y:
-
-- instala dependencias
-- valida lint
-- compila
-- ejecuta tests
-- genera el archivo de entorno del proyecto
-- despliega Firestore y Cloud Functions
-
-### Secrets de GitHub requeridos
-
-- `FIREBASE_SERVICE_ACCOUNT`
-- `CORS_ORIGIN`
-- `LOG_LEVEL`
-
-### Recomendacion operativa
-
-Protege `main` y exige el check `CI / Lint, Build and Test` antes de permitir merge.
+- arquitectura simple y explicable
+- contratos claros
+- errores controlados
+- pruebas automatizadas
+- despliegue compatible con Firebase
